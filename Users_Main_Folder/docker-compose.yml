@@ -1,0 +1,12 @@
+version: '3'
+services :
+    user_call:
+        container_name: users
+        restart: always
+        build:
+            context: ./Users
+            dockerfile: Dockerfile
+        command: sh -c "python3 -u users.py"
+        image: users:latest
+        ports:
+          - "80:5000"

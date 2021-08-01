@@ -1,0 +1,81 @@
+In zookeeper, port 2181 is for client connections, port 2888 is for follower connections, 
+and port 3888 is for other server connections during leader election phase.
+MY:ID is the id for zookeeper, which is 1.
+
+A channel is a TCP connection established with the rabbitmq server.
+An exchange is a message routing agent, which decides which queues to route the messages to.
+
+IP address of load balancer : Users-Rides-1846279167.us-east-1.elb.amazonaws.com
+IP address of orchestrator instance : 54.152.249.57
+
+API's in User VM:
+1) Create User - path : /api/v1/users , method = PUT
+2) Delete User - path : /api/v1/users/<username> , method = DELETE
+3) List all users - path : /api/v1/users , method = GET
+API's 1 to 3 are called on Load Balancer IP
+
+4) Countnumber of requests made to users VM - path : /api/v1/_count , method = GET
+5) Reset count of requests - path : /api/v1/_count , method = DELETE
+API's 4 and 5 are called on VM's IP.
+
+
+API's in Ride VM:
+1) Create Ride - path : /api/v1/rides , method = POST
+2) Get upcoming rides based on source and destination - path : /api/v1/rides , method = GET
+3) Get ride details based on ride id - path : /api/v1/rides/<ride_id> , method = GET
+4) Join an existing ride - path : /api/v1/rides/<ride_id> , method = POST
+5) Delete a ride - path : /api/v1/rides/<ride_id> , method = DELETE
+6) Get total number of rides - path : /api/v1/rides/count , method = GET
+API's 1 to 6 are called on Load Balancer IP
+
+7) Countnumber of requests made to users VM - path : /api/v1/_count , method = GET
+8) Reset count of requests - path : /api/v1/_count , method = DELETE
+API's 7 and 8 are called on VM's IP.
+
+API's in orchestrator:
+1) Read DB - path : /api/v1/db/write , method = POST
+2) Write DB - path : /api/v1/db/read , method = POST
+3) Clear DB - path : /api/v1/db/clear , method = POST
+4) Crash master - path : /api/v1/crash/master , method = POST
+5) Crash slave - path : /api/v1/crash/slave , method = POST
+6) Get PID's of all workers : path : /api/v1/worker/list , method = GET
+API's 1 to 6 are called on orchestrator IP
+
+
+Scale container function:
+First, number of read requests are counted.
+Then we calculate number of required containers.
+Then we count number of slave containers already running.
+We kill or create slave workers depending on requirement.
+
+
+Zookeeper watch function:
+Gets called every time a change occurs in the znode.
+The path all our znodes exist on is "\worker"
+We read from a text file to see if there was a fault in a container and it crashed.
+If there was a fault, we check if master or slave died.
+If slave died, we create new slave.
+If master died, we elect a new slave as the master ( slave with lowest pid) and then create new slave.
+
+
+In worker file:
+We create a znode for the worker.
+We update its database by reading from command queue.
+We read an environment variable to see if the worker is the master or a slave.
+We also read data in znode again and again to see if function of worker changed from slave to master.
+After that, the slave and master keep reading from queues continuously, checking to see if any messages have come.
+Master reads from the writeQ, and then writes onto database.
+
+Slave reads from readQ and sync exchange. 
+If it gets message on readQ, it reads from database, and writes message on callback queue.
+If it gets message from sync exchange, it writes the data onto database. 
+
+
+Load balancer distrbutes incoming application traffic across the different targets( EC@ instances for us).
+We use an application load balancer.
+We have defined a listener for users and another for rides.
+We have a rule defined that says if the path begins with /api/v1/users then we call the users VM, when a call is placed over load balancer.
+Otherwise ride VM is called.
+
+Advantage of application load balancer over classic load balancer is that it supports path based routing. 
+We have configured our rules in the load balancer based on path based routing.

@@ -1,0 +1,7 @@
+Each command goes to a separate terminal.
+ssh -i "Saahil.pem" ubuntu@ec2-54-152-249-57.compute-1.amazonaws.com
+ssh -i "Saahil.pem" ubuntu@ec2-35-174-242-44.compute-1.amazonaws.com
+ssh -i "Saahil.pem" ubuntu@ec2-100-26-156-148.compute-1.amazonaws.com
+
+Then run this command on each terminal:
+docker-compose down && docker-compose up --build && docker-compose up
